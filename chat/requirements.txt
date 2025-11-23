@@ -1,0 +1,20 @@
+# Requirements pour l'application web Chat
+
+# Framework Flask
+Flask==3.0.0
+flask-socketio==5.3.4
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.3
+python-socketio==5.9.0
+python-engineio==4.7.1
+python-dotenv==1.0.0
+requests==2.31.0
+Werkzeug==3.0.0
+
+# PostgreSQL & Database
+psycopg2-binary==2.9.9  # PostgreSQL adapter
+Flask-Migrate==4.0.5    # Database migrations
+alembic==1.13.1         # SQLAlchemy migrations
+
+# Production
+gunicorn==21.2.0

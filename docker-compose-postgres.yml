@@ -1,0 +1,105 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database (Development & Production)
+  postgres:
+    image: postgres:16-alpine
+    container_name: frigo-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-frigo_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-frigo_secure_pass_change_me}
+      POSTGRES_DB: ${DB_NAME:-chat_app}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./chat/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - frigo-network
+    restart: unless-stopped
+
+  # Application principale (app.py)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: frigo-app
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://frigo_user:frigo_secure_pass_change_me@postgres:5432/chat_app}
+      CHAT_API_URL: http://chat:5001
+      IA_SERVICE_URL: http://gpt:5002
+      IA_MODEL: ${IA_MODEL:-gpt2}
+      HF_LOCAL_MODEL_PATH: /app/models/gpt2
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    networks:
+      - frigo-network
+    restart: unless-stopped
+
+  # Chat Web UI (chat/app_web.py)
+  chat:
+    build:
+      context: .
+      dockerfile: chat/Dockerfile
+    container_name: frigo-chat
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://frigo_user:frigo_secure_pass_change_me@postgres:5432/chat_app}
+      MAIN_APP_URL: http://app:5000
+      IA_SERVICE_URL: http://gpt:5002
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      app:
+        condition: service_started
+    volumes:
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    networks:
+      - frigo-network
+    restart: unless-stopped
+
+  # IA Service (gpt/app_ia.py)
+  gpt:
+    build:
+      context: .
+      dockerfile: gpt/Dockerfile
+    container_name: frigo-gpt
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-development}
+      IA_MODEL: ${IA_MODEL:-gpt2}
+      HF_LOCAL_MODEL_PATH: /app/models/gpt2
+    ports:
+      - "5002:5002"
+    depends_on:
+      - app
+      - chat
+    volumes:
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    networks:
+      - frigo-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  frigo-network:
+    driver: bridge

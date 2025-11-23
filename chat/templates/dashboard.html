@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Diagnostic Frigo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🍺 Frigo Diag</h2>
+                <span class="user-badge">{{ username }}</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-tab="chat">💬 Chat</button>
+                <button class="nav-btn" data-tab="alerts">🚨 Alertes</button>
+                <button class="nav-btn" data-tab="diagnostics">📋 Diagnostics</button>
+                <button class="nav-btn" data-tab="stats">📊 Stats</button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="/logout" class="btn btn-secondary btn-small">Déconnexion</a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header">
+                <h1 id="pageTitle">💬 Chat avec le Système</h1>
+                <div class="header-stats">
+                    <span class="stat-badge" id="unreadAlerts">0 ⚠️</span>
+                </div>
+            </header>
+
+            <!-- Chat Tab -->
+            <section id="chat" class="tab-content active">
+                <div class="chat-container">
+                    <div id="messagesBox" class="messages-box">
+                        <div class="message system-message">
+                            <p><strong>Système:</strong> Bienvenue! Posez vos questions sur le diagnostic du frigo.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-area">
+                        <form id="chatForm" class="chat-form">
+                            <input type="text" id="messageInput" placeholder="Écrivez votre message..." required>
+                            <button type="submit" class="btn btn-primary btn-small">Envoyer</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alerts Tab -->
+            <section id="alerts" class="tab-content">
+                <div class="alerts-container">
+                    <div class="alerts-header">
+                        <h2>🚨 Alertes Système</h2>
+                        <button id="clearAlertsBtn" class="btn btn-secondary btn-small">Marquer tout comme lu</button>
+                    </div>
+                    <div id="alertsList" class="alerts-list">
+                        <p class="empty-message">Aucune alerte pour le moment</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Diagnostics Tab -->
+            <section id="diagnostics" class="tab-content">
+                <div class="diagnostics-container">
+                    <div class="diagnostics-header">
+                        <h2>📋 Historique des Diagnostics</h2>
+                    </div>
+                    <div id="diagnosticsList" class="diagnostics-list">
+                        <p class="empty-message">Aucun diagnostic disponible</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats Tab -->
+            <section id="stats" class="tab-content">
+                <div class="stats-container">
+                    <h2>📊 Statistiques</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Alertes Total</h3>
+                            <p class="stat-value" id="totalAlerts">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Alertes Critiques</h3>
+                            <p class="stat-value critical" id="criticalAlerts">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Messages</h3>
+                            <p class="stat-value" id="totalMessages">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Diagnostics</h3>
+                            <p class="stat-value" id="totalDiagnostics">0</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # Application web chat avec SQLite persistant
+  chat-web:
+    build:
+      context: .
+      dockerfile: chat/Dockerfile
+    container_name: frigo-chat-web
+    ports:
+      - "5001:5001"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app_web.py
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-prod}
+      - MAIN_APP_URL=http://main-app:5000
+      - IA_SERVICE_URL=http://ia-service:5002
+      - DATABASE_URL=sqlite:////data/chat_app.db
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Volume persistant pour la base de données SQLite
+      - chat-data:/data
+      # Volume pour les logs
+      - chat-logs:/app/logs
+    depends_on:
+      - main-app
+    networks:
+      - frigo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Application principale
+  main-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: frigo-main-app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - CHAT_SERVICE_URL=http://chat-web:5001
+      - IA_SERVICE_URL=http://ia-service:5002
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    volumes:
+      # Volume pour les logs
+      - main-logs:/app/logs
+      # Volume pour les données
+      - main-data:/app/data
+    networks:
+      - frigo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Service IA avec modèles LLM locaux (Phi-2, Mistral, etc.)
+  ia-service:
+    build:
+      context: .
+      dockerfile: gpt/Dockerfile
+    container_name: frigo-ia-service
+    ports:
+      - "5002:5002"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - IA_MODEL=${IA_MODEL:-phi}
+      - IA_USE_GPU=${IA_USE_GPU:-false}
+      - IA_TEMPERATURE=0.7
+      - IA_MAX_TOKENS=512
+      - CHAT_API_URL=http://chat-web:5001
+      - MAIN_API_URL=http://main-app:5000
+    volumes:
+      # Volume persistant pour les modèles LLM (important pour ne pas re-télécharger)
+      - ia-models:/app/models
+      # Volume pour les données (KB, cache)
+      - ia-data:/app/data
+      # Volume pour les logs
+      - ia-logs:/app/logs
+    depends_on:
+      - main-app
+      - chat-web
+    networks:
+      - frigo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Note: La première exécution peut prendre 5-10 minutes pour télécharger le modèle
+    # Les exécutions suivantes sont rapides car le modèle est en cache
+
+  # PostgreSQL pour production (optionnel)
+  postgres:
+    image: postgres:15-alpine
+    container_name: frigo-postgres
+    environment:
+      - POSTGRES_DB=frigo_chat
+      - POSTGRES_USER=${POSTGRES_USER:-frigo}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      # Volume persistant pour PostgreSQL
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - frigo-network
+    restart: unless-stopped
+    profiles:
+      - postgres  # Activer avec: docker-compose --profile postgres up
+
+# Volumes nommés pour la persistance
+volumes:
+  chat-data:
+    driver: local
+  chat-logs:
+    driver: local
+  main-data:
+    driver: local
+  main-logs:
+    driver: local
+  ia-models:
+    driver: local
+  ia-data:
+    driver: local
+  ia-logs:
+    driver: local
+  postgres-data:
+    driver: local
+
+# Réseau personnalisé
+networks:
+  frigo-network:
+    driver: bridge
