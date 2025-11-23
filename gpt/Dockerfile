@@ -1,52 +1,71 @@
-# Stage 1: Base image avec Python et dépendances système
-FROM python:3.11-slim as base
+# Multi-stage Dockerfile: Télécharge automatiquement les modèles IA
+FROM python:3.11-slim as model-downloader
 
 WORKDIR /app
 
-# Installer les dépendances système pour PyTorch et compilation
+# Installer les dépendances système
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copier requirements et script de téléchargement depuis racine
+COPY requirements.txt /tmp/requirements.txt
+COPY download_models.py /tmp/download_models.py
+
+# Installer les dépendances Python
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Télécharger les modèles IA (phi par défaut = 5GB, ~10 min)
+RUN mkdir -p /app/models && \
+    cd /tmp && \
+    python download_models.py --model phi 2>&1 && \
+    echo "✅ Modèle phi téléchargé avec succès" && \
+    mv /tmp/models/phi /app/models/ || echo "Modèle déjà en place"
+
+# ============================================================
+# Stage 2: Image finale avec modèles pré-inclus
+# ============================================================
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Installer les dépendances système minimales
+RUN apt-get update && apt-get install -y \
+    gcc \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copier les requirements
+# Copier les modèles du stage précédent
+COPY --from=model-downloader /app/models /app/models
+
+# Copier requirements et installer
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Stage 2: Installation des dépendances Python
-FROM base as builder
+# Copier l'application gpt/
+COPY . .
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Créer les répertoires nécessaires
+RUN mkdir -p /app/logs /app/cache
 
-# Stage 3: Image finale
-FROM base
-
-# Copier les dépendances du builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copier le code de l'application gpt/
-COPY gpt/ .
-
-# Copier les modèles vers ../models (accessible via chemin relatif)
-COPY models/ ../models/
-
-# Créer les répertoires de logs et data
-RUN mkdir -p /app/logs /app/data /app/cache
-
-# Définir les variables d'environnement
+# Variables d'environnement
 ENV FLASK_APP=app_ia.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV IA_MODEL=phi
 ENV IA_USE_GPU=false
-ENV HF_LOCAL_MODEL_PATH=/app/../models/phi-2
+ENV HF_LOCAL_MODEL_PATH=/app/models/phi
 ENV MAIN_APP_URL=http://app:5000
 ENV CHAT_API_URL=http://chat:5001
 
 # Port d'exposition
 EXPOSE 5002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5002/health || exit 1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
