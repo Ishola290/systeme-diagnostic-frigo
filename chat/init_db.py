@@ -6,6 +6,14 @@ from app_web import app, db, User
 import sys
 import os
 
+import os
+
+# Vérifier si on doit utiliser la DB
+if os.getenv("USE_DB", "true").lower() != "true":
+    print("⚠️ USE_DB=false -> Initialisation de la base ignorée")
+    exit(0)
+
+
 def init_database():
     """Créer les tables de la base de données"""
     with app.app_context():
