@@ -45,10 +45,6 @@ instance/chat_app.db
 .git/
 .gitignore
 
-# Docker
-Dockerfile
-.dockerignore
-
 # Tests
 test_*.py
 tests/
