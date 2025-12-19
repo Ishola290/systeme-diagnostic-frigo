@@ -9,6 +9,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from app_web import app, db, User
 
+import os
+
+# Vérifier si on doit utiliser la DB
+if os.getenv("USE_DB", "true").lower() != "true":
+    print("⚠️ USE_DB=false -> Initialisation de la base ignorée")
+    exit(0)
+
+
 def create_admin():
     with app.app_context():
         try:
