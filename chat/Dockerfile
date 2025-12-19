@@ -23,7 +23,7 @@ COPY chat/requirements.txt .
 # Installer les dépendances Python
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt gunicorn gevent gevent-websocket
-    pip install --no-cache-dir transformers
+    
 
 
 # Copier l'application
