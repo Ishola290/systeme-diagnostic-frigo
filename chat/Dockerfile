@@ -11,6 +11,7 @@ ENV FLASK_ENV=production \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
+    USE_DB=false  # <-- Nouvelle variable pour gérer la DB
 
 # Installer les dépendances système
 RUN apt-get update && apt-get install -y --no-install-recommends \
