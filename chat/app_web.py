@@ -17,6 +17,28 @@ from functools import wraps
 import sys
 from sqlalchemy import text
 
+# ==================== MODE COMMUTABLE DB ====================
+USE_DB = os.environ.get("USE_DB", "false").lower() == "true"
+
+# ==================== UTILISATEUR INVITÉ ====================
+class GuestUser:
+    id = 1
+    username = "Invité"
+    email = "guest@local"
+    is_authenticated = True
+    is_admin = False
+from functools import wraps
+
+def optional_login_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if USE_DB:
+            return login_required(func)(*args, **kwargs)
+        return func(*args, **kwargs)
+    return wrapper
+
+
+
 # Force UTF-8 encoding on Windows
 if sys.platform == 'win32':
     import io
@@ -27,12 +49,10 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     # PostgreSQL avec fallback SQLite en développement
     FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
-    if FLASK_ENV == 'production':
-        # Production: utiliser PostgreSQL (Render fourni DATABASE_URL)
-        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://user:password@localhost/chat_app'
-    else:
-        # Développement: SQLite local
-        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///chat_app.db'
+    
+    if USE_DB:
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///chat_app.db')
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAIN_APP_URL = os.environ.get('MAIN_APP_URL') or 'http://localhost:5000'
     IA_SERVICE_URL = os.environ.get('IA_SERVICE_URL') or 'http://localhost:5002'
@@ -44,9 +64,13 @@ class Config:
 app = Flask(__name__)
 app.config.from_object(Config)
 socketio = SocketIO(app, cors_allowed_origins="*", manage_session=False)
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
+
+if USE_DB:
+    db = SQLAlchemy(app)
+    login_manager = LoginManager(app)
+    login_manager.login_view = 'login'
+else:
+    db = None
 
 # Logging
 logging.basicConfig(
@@ -216,14 +240,19 @@ class Diagnostic(db.Model):
 
 # ==================== LOGIN MANAGER ====================
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+if USE_DB:
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
 
 # ==================== ROUTES AUTHENTIFICATION ====================
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    if not USE_DB:
+        return redirect(url_for('dashboard'))
+
     """Enregistrement utilisateur"""
     if request.method == 'POST':
         data = request.get_json()
@@ -254,6 +283,9 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if not USE_DB:
+        return redirect(url_for('dashboard'))
+
     """Connexion utilisateur"""
     if request.method == 'POST':
         data = request.get_json()
@@ -278,7 +310,8 @@ def login():
     return render_template('login.html')
 
 @app.route('/logout')
-@login_required
+@optional_login_required
+
 def logout():
     """Déconnexion"""
     logger.info(f"🔓 Déconnexion: {current_user.username}")
@@ -289,13 +322,12 @@ def logout():
 
 @app.route('/')
 def index():
-    """Page d'accueil"""
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    return redirect(url_for('dashboard'))
+
 
 @app.route('/dashboard')
-@login_required
+@optional_login_required
+
 def dashboard():
     """Dashboard principal"""
     return render_template('dashboard.html', username=current_user.username)
@@ -303,7 +335,8 @@ def dashboard():
 # ==================== ROUTES API ====================
 
 @app.route('/api/alerts', methods=['GET'])
-@login_required
+@optional_login_required
+
 def get_alerts():
     """Récupérer les alertes"""
     limit = request.args.get('limit', 50, type=int)
@@ -318,7 +351,8 @@ def get_alerts():
     return jsonify([alert.to_dict() for alert in alerts]), 200
 
 @app.route('/api/alerts/<int:alert_id>/read', methods=['PUT'])
-@login_required
+@optional_login_required
+
 def mark_alert_read(alert_id):
     """Marquer une alerte comme lue"""
     alert = Alert.query.get(alert_id)
@@ -333,7 +367,8 @@ def mark_alert_read(alert_id):
     return jsonify({'success': True}), 200
 
 @app.route('/api/messages', methods=['GET'])
-@login_required
+@optional_login_required
+
 def get_messages():
     """Récupérer l'historique des messages"""
     limit = request.args.get('limit', 100, type=int)
@@ -341,7 +376,8 @@ def get_messages():
     return jsonify([msg.to_dict() for msg in reversed(messages)]), 200
 
 @app.route('/api/messages', methods=['POST'])
-@login_required
+@optional_login_required
+
 def create_message():
     """
     Créer un message utilisateur et obtenir réponse du service IA
@@ -433,7 +469,8 @@ def create_message():
     return jsonify(msg.to_dict()), 201
 
 @app.route('/api/diagnostics', methods=['GET'])
-@login_required
+@optional_login_required
+
 def get_diagnostics():
     """Récupérer l'historique des diagnostics"""
     limit = request.args.get('limit', 50, type=int)
@@ -441,7 +478,8 @@ def get_diagnostics():
     return jsonify([d.to_dict() for d in diagnostics]), 200
 
 @app.route('/api/stats', methods=['GET'])
-@login_required
+@optional_login_required
+
 def get_stats():
     """Statistiques dashboard"""
     total_alerts = Alert.query.count()
@@ -735,6 +773,9 @@ def handle_system_request(data):
 # ==================== DÉMARRAGE ====================
 
 def init_db():
+    if not USE_DB:
+    return
+
     """Initialiser la base de données"""
     with app.app_context():
         # Crée les tables si elles n'existent pas
