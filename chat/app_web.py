@@ -16,9 +16,11 @@ import requests
 from functools import wraps
 import sys
 from sqlalchemy import text
+from flask_login import UserMixin
 
 # ==================== MODE COMMUTABLE DB ====================
 USE_DB = os.environ.get("USE_DB", "false").lower() == "true"
+db = None
 
 # ==================== UTILISATEUR INVITÉ ====================
 class GuestUser:
