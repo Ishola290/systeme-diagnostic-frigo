@@ -50,8 +50,15 @@ class Config:
     # PostgreSQL avec fallback SQLite en développement
     FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
     
+    USE_DB = os.environ.get("USE_DB", "false").lower() == "true"
+
     if USE_DB:
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///chat_app.db')
+        SQLALCHEMY_DATABASE_URI = os.environ.get(
+            "DATABASE_URL",
+            "sqlite:///chat_app.db"
+        )
+    else:
+        SQLALCHEMY_DATABASE_URI = None
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAIN_APP_URL = os.environ.get('MAIN_APP_URL') or 'http://localhost:5000'
