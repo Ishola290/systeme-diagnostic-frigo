@@ -781,7 +781,7 @@ def handle_system_request(data):
 
 def init_db():
     if not USE_DB:
-    return
+        return
 
     """Initialiser la base de données"""
     with app.app_context():
