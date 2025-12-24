@@ -32,8 +32,14 @@ from sqlalchemy.exc import OperationalError, DBAPIError
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
 
-    # 🔧 FIX : détection automatique + switch centralisé
     TRY_DB_ON_START = os.environ.get("USE_DB", "false").lower() == "true"
+
+    # 🔧 FIX : on fournit TOUJOURS une URI valide pour Flask-SQLAlchemy
+    if TRY_DB_ON_START and os.environ.get("DATABASE_URL"):
+        SQLALCHEMY_DATABASE_URI = os.environ["DATABASE_URL"]
+    else:
+        SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAIN_APP_URL = os.environ.get('MAIN_APP_URL') or 'http://localhost:5000'
     IA_SERVICE_URL = os.environ.get('IA_SERVICE_URL') or 'http://localhost:5002'
@@ -48,7 +54,7 @@ app = Flask(__name__)
 app.config.from_object(Config)
 socketio = SocketIO(app, cors_allowed_origins="*", manage_session=False)
 
-# 🔧 FIX : on crée TOUJOURS l'objet SQLAlchemy pour éviter NameError
+# 🔧 SQLAlchemy toujours créé, mais on accède aux modèles seulement si DB OK
 db = SQLAlchemy(app)
 
 # ------------------------------------------------------------------
@@ -75,9 +81,7 @@ login_manager = LoginManager(app)
 if DB_AVAILABLE:
     login_manager.login_view = 'login'
 else:
-    # 🔧 on désactive la redirection automatique
     login_manager.login_view = None
-
 
 # ------------------------------------------------------------------
 # 4️⃣  UTILISATEUR INVITÉ (mode sans DB)
@@ -94,7 +98,6 @@ class GuestUser:
     def get_id(self):
         return str(self.id)
 
-
 # ------------------------------------------------------------------
 # 5️⃣  DÉCORATEUR UNIVERSEL
 # ------------------------------------------------------------------
@@ -107,7 +110,6 @@ def optional_login_required(func):
         return login_required(func)(*args, **kwargs)
     return wrapped
 
-
 # ------------------------------------------------------------------
 # 6️⃣  USER LOADER
 # ------------------------------------------------------------------
@@ -116,7 +118,6 @@ def load_user(user_id):
     if not current_app.config["DB_AVAILABLE"]:
         return GuestUser()
     return User.query.get(int(user_id))
-
 
 # ------------------------------------------------------------------
 # 7️⃣  MODÈLES SQL (UNIQUEMENT SI BDD ACTIVE)
