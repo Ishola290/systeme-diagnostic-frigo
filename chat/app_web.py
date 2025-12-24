@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Application Flask Web - Interface Web pour Système Diagnostic Frigo
+Application Flask Web – Interface Web pour Système Diagnostic Frigo
 Chat en temps réel + Dashboard Alertes + Historique Diagnostics
-VERSION « DB-less » compatible
+VERSION « DB-less » compatible & Render-safe
 """
 
 import os
@@ -27,14 +27,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import OperationalError, DBAPIError
 
 # ------------------------------------------------------------------
-# 0️⃣  CONFIGURATION UNIQUE
+# 0️⃣  CONFIG CENTRALE
 # ------------------------------------------------------------------
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
 
     TRY_DB_ON_START = os.environ.get("USE_DB", "false").lower() == "true"
 
-    # 🔧 FIX : on fournit TOUJOURS une URI valide pour Flask-SQLAlchemy
+    # 🔧 URI toujours présente pour éviter RuntimeError
     if TRY_DB_ON_START and os.environ.get("DATABASE_URL"):
         SQLALCHEMY_DATABASE_URI = os.environ["DATABASE_URL"]
     else:
@@ -48,17 +48,16 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
 
 # ------------------------------------------------------------------
-# 1️⃣  INITIALISATION FLASK
+# 1️⃣  INIT FLASK
 # ------------------------------------------------------------------
 app = Flask(__name__)
 app.config.from_object(Config)
 socketio = SocketIO(app, cors_allowed_origins="*", manage_session=False)
 
-# 🔧 SQLAlchemy toujours créé, mais on accède aux modèles seulement si DB OK
 db = SQLAlchemy(app)
 
 # ------------------------------------------------------------------
-# 2️⃣  TENTATIVE DE CONNEXION BDD AU DÉMARRAGE
+# 2️⃣  CONNEXION BDD AU DÉMARRAGE
 # ------------------------------------------------------------------
 DB_AVAILABLE = False
 if Config.TRY_DB_ON_START:
@@ -75,7 +74,7 @@ else:
     app.config["DB_AVAILABLE"] = False
 
 # ------------------------------------------------------------------
-# 3️⃣  LOGIN MANAGER (UNIQUEMENT SI BDD OK)
+# 3️⃣  LOGIN MANAGER
 # ------------------------------------------------------------------
 login_manager = LoginManager(app)
 if DB_AVAILABLE:
@@ -84,7 +83,7 @@ else:
     login_manager.login_view = None
 
 # ------------------------------------------------------------------
-# 4️⃣  UTILISATEUR INVITÉ (mode sans DB)
+# 4️⃣  UTILISATEUR INVITÉ
 # ------------------------------------------------------------------
 class GuestUser:
     id = 1
@@ -102,7 +101,6 @@ class GuestUser:
 # 5️⃣  DÉCORATEUR UNIVERSEL
 # ------------------------------------------------------------------
 def optional_login_required(func):
-    """Passe partout : login requis seulement si BDD active."""
     @wraps(func)
     def wrapped(*args, **kwargs):
         if not current_app.config["DB_AVAILABLE"]:
@@ -120,102 +118,103 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # ------------------------------------------------------------------
-# 7️⃣  MODÈLES SQL (UNIQUEMENT SI BDD ACTIVE)
+# 7️⃣  MODÈLES SQL (TOUJOURS DÉFINIS – Hors bloc IF)
 # ------------------------------------------------------------------
-if DB_AVAILABLE:
-    # --- User -------------------------------------------------------------
-    class User(UserMixin, db.Model):
-        __tablename__ = 'users'
-        id = db.Column(db.Integer, primary_key=True)
-        username = db.Column(db.String(80), unique=True, nullable=False)
-        email = db.Column(db.String(120), unique=True, nullable=False)
-        password_hash = db.Column(db.String(200), nullable=False)
-        is_admin = db.Column(db.Boolean, default=False)
-        created_at = db.Column(db.DateTime, default=datetime.utcnow)
-        last_login = db.Column(db.DateTime)
-        messages = db.relationship('Message', backref='user', lazy=True,
-                                   cascade='all, delete-orphan')
-        alerts_viewed = db.relationship('Alert', backref='viewer', lazy=True)
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    __table_args__ = {'extend_existing': True}
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    messages = db.relationship('Message', backref='user', lazy=True,
+                               cascade='all, delete-orphan')
+    alerts_viewed = db.relationship('Alert', backref='viewer', lazy=True)
 
-        def set_password(self, pwd):
-            self.password_hash = generate_password_hash(pwd)
+    def set_password(self, pwd):
+        self.password_hash = generate_password_hash(pwd)
 
-        def check_password(self, pwd):
-            return check_password_hash(self.password_hash, pwd)
+    def check_password(self, pwd):
+        return check_password_hash(self.password_hash, pwd)
 
-    # --- Alert ------------------------------------------------------------
-    class Alert(db.Model):
-        __tablename__ = 'alerts'
-        id = db.Column(db.Integer, primary_key=True)
-        type = db.Column(db.String(50), nullable=False)
-        title = db.Column(db.String(200), nullable=False)
-        message = db.Column(db.Text, nullable=False)
-        diagnostic_id = db.Column(db.String(100))
-        severity = db.Column(db.String(20), default='medium')
-        is_read = db.Column(db.Boolean, default=False)
-        created_at = db.Column(db.DateTime, default=datetime.utcnow)
-        updated_at = db.Column(db.DateTime, default=datetime.utcnow,
-                               onupdate=datetime.utcnow)
-        read_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-        occurrences = db.Column(db.Integer, default=1)
-        first_seen = db.Column(db.DateTime, default=datetime.utcnow)
-        last_seen = db.Column(db.DateTime, default=datetime.utcnow,
-                               onupdate=datetime.utcnow)
-        status = db.Column(db.String(50), default='new')
-        confidence = db.Column(db.Float, default=0.0)
 
-        def to_dict(self):
-            return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+class Alert(db.Model):
+    __tablename__ = 'alerts'
+    __table_args__ = {'extend_existing': True}
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(50), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    diagnostic_id = db.Column(db.String(100))
+    severity = db.Column(db.String(20), default='medium')
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
+    read_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    occurrences = db.Column(db.Integer, default=1)
+    first_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
+    status = db.Column(db.String(50), default='new')
+    confidence = db.Column(db.Float, default=0.0)
 
-        def calculate_confidence(self):
-            # ta logique inchangée
-            self.confidence = 75.0   # valeur fake pour exemple
-            return self.confidence
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
-    # --- Message ----------------------------------------------------------
-    class Message(db.Model):
-        __tablename__ = 'messages'
-        id = db.Column(db.Integer, primary_key=True)
-        user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-        content = db.Column(db.Text, nullable=False)
-        is_from_system = db.Column(db.Boolean, default=False)
-        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    def calculate_confidence(self):
+        self.confidence = 75.0
+        return self.confidence
 
-        def to_dict(self):
-            return {
-                'id': self.id,
-                'user_id': self.user_id,
-                'username': self.user.username,
-                'content': self.content,
-                'is_from_system': self.is_from_system,
-                'created_at': self.created_at.isoformat()
-            }
 
-    # --- Diagnostic -------------------------------------------------------
-    class Diagnostic(db.Model):
-        __tablename__ = 'diagnostics'
-        id = db.Column(db.Integer, primary_key=True)
-        diagnostic_id = db.Column(db.String(100), unique=True, nullable=False)
-        user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-        description = db.Column(db.Text)
-        result = db.Column(db.JSON)
-        status = db.Column(db.String(50), default='pending')
-        created_at = db.Column(db.DateTime, default=datetime.utcnow)
-        completed_at = db.Column(db.DateTime)
+class Message(db.Model):
+    __tablename__ = 'messages'
+    __table_args__ = {'extend_existing': True}
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    is_from_system = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-        def to_dict(self):
-            return {
-                'id': self.id,
-                'diagnostic_id': self.diagnostic_id,
-                'description': self.description,
-                'result': self.result,
-                'status': self.status,
-                'created_at': self.created_at.isoformat(),
-                'completed_at': self.completed_at.isoformat() if self.completed_at else None
-            }
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'username': self.user.username,
+            'content': self.content,
+            'is_from_system': self.is_from_system,
+            'created_at': self.created_at.isoformat()
+        }
+
+
+class Diagnostic(db.Model):
+    __tablename__ = 'diagnostics'
+    __table_args__ = {'extend_existing': True}
+    id = db.Column(db.Integer, primary_key=True)
+    diagnostic_id = db.Column(db.String(100), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    description = db.Column(db.Text)
+    result = db.Column(db.JSON)
+    status = db.Column(db.String(50), default='pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'diagnostic_id': self.diagnostic_id,
+            'description': self.description,
+            'result': self.result,
+            'status': self.status,
+            'created_at': self.created_at.isoformat(),
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
 
 # ------------------------------------------------------------------
-# 8️⃣  ROUTES AUTH (UNIQUEMENT SI BDD)
+# 8️⃣  ROUTES AUTH (SEULEMENT SI BDD ACTIVE)
 # ------------------------------------------------------------------
 if DB_AVAILABLE:
     @app.route('/register', methods=['GET', 'POST'])
@@ -264,11 +263,8 @@ def index():
 @app.route('/dashboard')
 @optional_login_required
 def dashboard():
-    # 🔧 FIX : on n’utilise « current_user » que si DB active
-    username = (current_user.username if DB_AVAILABLE
-                else GuestUser.username)
+    username = current_user.username if DB_AVAILABLE else GuestUser.username
     return render_template('dashboard.html', username=username)
-
 
 # ------------------------------------------------------------------
 # 🔟  ROUTES API (PROTEGEES)
@@ -277,7 +273,7 @@ def dashboard():
 @optional_login_required
 def get_alerts():
     if not current_app.config["DB_AVAILABLE"]:
-        return jsonify([]), 200   # 🔧 mock vide
+        return jsonify([]), 200
     limit = request.args.get('limit', 50, type=int)
     unread_only = request.args.get('unread_only', False, type=bool)
     q = Alert.query.order_by(Alert.created_at.desc())
@@ -290,7 +286,7 @@ def get_alerts():
 @optional_login_required
 def mark_alert_read(alert_id):
     if not current_app.config["DB_AVAILABLE"]:
-        return jsonify({'success': True}), 200   # 🔧 no-op
+        return jsonify({'success': True}), 200
     alert = Alert.query.get(alert_id)
     if not alert:
         return jsonify({'error': 'Alerte non trouvée'}), 404
@@ -359,7 +355,6 @@ def get_diagnostics():
 @optional_login_required
 def get_stats():
     if not current_app.config["DB_AVAILABLE"]:
-        # 🔧 mock stats
         return jsonify({'total_alerts': 0, 'unread_alerts': 0,
                         'total_messages': 0, 'total_diagnostics': 0,
                         'critical_alerts': 0}), 200
@@ -373,13 +368,13 @@ def get_stats():
 
 
 # ------------------------------------------------------------------
-# 🔗  ROUTE SYSTEM (RECEPTION ALERTES)
+# 🔗  ROUTE SYSTÈME (RECEPTION ALERTES)
 # ------------------------------------------------------------------
 @app.route('/api/receive-alert', methods=['POST'])
 def receive_alert():
     if not current_app.config["DB_AVAILABLE"]:
         return jsonify({'status': 'ignored', 'reason': 'no_db'}), 200
-    # … ta logique inchangée …
+    # … logique inchangée …
     return jsonify({'status': 'ok'}), 201
 
 
