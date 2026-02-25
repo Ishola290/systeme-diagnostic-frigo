@@ -14,13 +14,31 @@ import requests
 import sys
 from pathlib import Path
 
-# Import DB Postgres (fallback sur fichiers si pas dispo)
+# Import DB Postgres (optionnel)
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from db_postgres import (
-    save_alert, get_alerts, get_alerts_stats,
-    save_diagnostic, get_diagnostics_stats,
-    is_postgres_enabled, init_db as init_postgres_db
-)
+try:
+    from db_postgres import (
+        save_alert, get_alerts, get_alerts_stats,
+        save_diagnostic, get_diagnostics_stats,
+        is_postgres_enabled, init_db as init_postgres_db
+    )
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    logger.warning("⚠️ db_postgres non disponible, utilisation mode fichier")
+    POSTGRES_AVAILABLE = False
+    
+    # Mock des fonctions Postgres
+    def is_postgres_enabled():
+        return False
+    
+    def save_alert(alert):
+        return False
+    
+    def get_alerts(limit=10, severity=None):
+        return []
+    
+    def get_alerts_stats():
+        return {'total_alerts': 0, 'critical_alerts': 0, 'high_alerts': 0}
 
 # ==================== MODE SANS AUTHENTIFICATION ====================
 USE_DB = False  # AUTHENTIFICATION COMPLETEMENT DESACTIVEE
