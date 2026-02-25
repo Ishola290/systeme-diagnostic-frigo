@@ -1,0 +1,68 @@
+# Multi-stage Dockerfile Production Ready
+# Télécharge automatiquement les modèles à la construction
+
+FROM python:3.11-slim as base
+
+WORKDIR /app
+
+# Installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    gcc \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# STAGE 1: Télécharger les modèles
+# ============================================================
+
+FROM base as model-downloader
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY download_models.py .
+
+# Télécharger les modèles (peut prendre 30+ minutes)
+RUN mkdir -p /app/models && \
+    python download_models.py 2>&1 | tee /tmp/download.log && \
+    echo "✅ Modèles téléchargés avec succès"
+
+# ============================================================
+# STAGE 2: Image finale (copier les modèles)
+# ============================================================
+
+FROM base as final
+
+WORKDIR /app
+
+# Copier les modèles du stage précédent
+COPY --from=model-downloader /app/models /app/models
+
+# Copier les requirements et installer
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier toute l'application
+COPY . .
+
+# Créer les répertoires nécessaires
+RUN mkdir -p /app/logs /app/data /app/cache
+
+# Variables d'environnement
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
+ENV HF_LOCAL_MODEL_PATH=/app/models/phi-2
+ENV CHAT_API_URL=http://chat:5001
+ENV IA_SERVICE_URL=http://gpt:5002
+
+# Exposer le port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Commande de démarrage
+CMD ["python", "app.py"]

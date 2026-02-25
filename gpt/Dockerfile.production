@@ -1,0 +1,70 @@
+# Multi-stage Dockerfile IA Service Production Ready
+# Télécharge automatiquement les modèles à la construction
+
+FROM python:3.11-slim as base
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# STAGE 1: Télécharger les modèles
+# ============================================================
+
+FROM base as model-downloader
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY download_models.py .
+
+# Télécharger tous les modèles IA
+# Peut prendre 60+ minutes (phi, mistral, neural = 31GB)
+# Pour production rapide, télécharger seulement phi:
+RUN mkdir -p /app/models && \
+    python download_models.py --model phi 2>&1 | tee /tmp/download.log && \
+    echo "✅ Modèle phi téléchargé"
+
+# ============================================================
+# STAGE 2: Image finale
+# ============================================================
+
+FROM base as final
+
+WORKDIR /app/gpt
+
+# Copier les modèles du stage précédent
+COPY --from=model-downloader /app/models /app/models
+
+# Copier requirements et installer
+COPY gpt/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le code du service IA
+COPY gpt/ .
+
+# Créer les répertoires
+RUN mkdir -p /app/logs /app/data /app/cache
+
+# Variables d'environnement
+ENV FLASK_APP=app_ia.py
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
+ENV IA_MODEL=phi
+ENV HF_LOCAL_MODEL_PATH=/app/models/phi
+ENV MAIN_APP_URL=http://app:5000
+ENV CHAT_API_URL=http://chat:5001
+
+# Port
+EXPOSE 5002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5002/health || exit 1
+
+# Commande de démarrage
+CMD ["python", "-m", "gunicorn", "-w", "1", "-b", "0.0.0.0:5002", "--timeout", "120", "app_ia:app"]

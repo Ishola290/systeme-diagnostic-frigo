@@ -1,0 +1,42 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Dépendances minimales
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# App code gpt/
+COPY . .
+
+# Répertoires
+RUN mkdir -p /app/logs /app/models /app/cache
+
+# ============================================================
+# Stratégie Smart: Télécharge modèle à la demande
+# ============================================================
+ENV FLASK_APP=app_ia.py
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
+ENV HF_HOME=/app/models       
+ENV IA_MODEL=gpt2              
+ENV IA_USE_GPU=false
+ENV MAIN_APP_URL=http://app:5000
+ENV CHAT_API_URL=http://chat:5001
+
+# Port
+EXPOSE 5002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5002/health || exit 1
+
+# Démarrer app
+CMD ["python", "app_ia.py"]

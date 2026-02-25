@@ -1,0 +1,36 @@
+# Dockerfile pour Render - GEMINI ONLY (léger, compatible gratuit)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copier requirements et installer
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier l'application
+COPY . .
+
+# Créer les répertoires nécessaires
+RUN mkdir -p /app/logs /app/data /app/cache
+
+# Variables d'environnement pour Render
+ENV FLASK_APP=app_ia.py
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
+ENV GEMINI_MODEL=gemini-2.5-flash
+
+# Port d'exposition (Render utilise le port 10000 par défaut)
+EXPOSE 10000
+
+# Health check pour Render
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5002/health || exit 1
+
+# Commande de démarrage pour Render (utilise le port 10000)
+CMD ["python", "-m", "gunicorn", "-w", "1", "-b", "0.0.0.0:10000", "--timeout", "120", "app_ia:app"]

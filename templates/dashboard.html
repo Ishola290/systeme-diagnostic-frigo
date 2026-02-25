@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Dashboard - Système Diagnostic Frigo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { color: #1e3c72; font-size: 1.8rem; }
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .status-online { background: #4CAF50; color: white; }
+        .status-offline { background: #f44336; color: white; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .card:hover { transform: translateY(-5px); }
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+        .icon-blue { background: #e3f2fd; }
+        .icon-green { background: #e8f5e9; }
+        .icon-orange { background: #fff3e0; }
+        .icon-red { background: #ffebee; }
+        .card-title { font-size: 1.1rem; color: #666; font-weight: 500; }
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #1e3c72;
+            margin: 10px 0;
+        }
+        .card-subtitle { font-size: 0.9rem; color: #999; }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 4px;
+            transition: width 0.5s;
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .service-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #ddd;
+        }
+        .service-online { border-left-color: #4CAF50; }
+        .service-offline { border-left-color: #f44336; }
+        .service-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .dot-online { background: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.2); }
+        .dot-offline { background: #f44336; }
+        .service-name { font-weight: 500; font-size: 0.95rem; }
+        .service-status { font-size: 0.8rem; color: #666; margin-left: auto; }
+        .alerts-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .alert-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 3px solid;
+        }
+        .alert-high { background: #ffebee; border-left-color: #f44336; }
+        .alert-medium { background: #fff3e0; border-left-color: #ff9800; }
+        .alert-low { background: #e3f2fd; border-left-color: #2196F3; }
+        .alert-icon { margin-right: 12px; font-size: 1.2rem; }
+        .alert-content { flex: 1; }
+        .alert-title { font-weight: 600; margin-bottom: 4px; }
+        .alert-time { font-size: 0.8rem; color: #666; }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .footer {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            margin-top: 30px;
+            font-size: 0.9rem;
+        }
+        .last-update {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 10px;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .updating { animation: pulse 1s infinite; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🔧 Système de Diagnostic Frigorifique</h1>
+                <div class="last-update">Dernière mise à jour: <span id="lastUpdate">--</span></div>
+            </div>
+            <span id="systemStatus" class="status-badge status-offline">⏳ Chargement...</span>
+        </div>
+
+        <div class="grid">
+            <!-- Card: Diagnostics Totaux -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon icon-blue">📊</div>
+                    <div class="card-title">Diagnostics Traités</div>
+                </div>
+                <div class="card-value" id="totalDiagnostics">--</div>
+                <div class="card-subtitle">Nombre total de diagnostics effectués</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="diagnosticsProgress" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Card: Taux de Détection -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon icon-orange">🎯</div>
+                    <div class="card-title">Taux de Détection Pannes</div>
+                </div>
+                <div class="card-value" id="detectionRate">--%</div>
+                <div class="card-subtitle">% de diagnostics avec panne détectée</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="detectionProgress" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Card: Réentraînements -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon icon-green">🧠</div>
+                    <div class="card-title">Réentraînements IA</div>
+                </div>
+                <div class="card-value" id="totalRetrains">--</div>
+                <div class="card-subtitle">Prochain à <span id="nextRetrain">--</span> cas</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="retrainProgress" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Card: Pannes Aujourd'hui -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon icon-red">⚠️</div>
+                    <div class="card-title">Pannes Aujourd'hui</div>
+                </div>
+                <div class="card-value" id="pannesToday">--</div>
+                <div class="card-subtitle">Alertes générées aujourd'hui</div>
+            </div>
+        </div>
+
+        <!-- Services Status -->
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+                <div class="card-icon icon-blue">🖥️</div>
+                <div class="card-title">État des Services</div>
+            </div>
+            <div class="services-grid" id="servicesGrid">
+                <div class="service-item service-offline">
+                    <div class="service-dot dot-offline"></div>
+                    <span class="service-name">App Principale (5000)</span>
+                    <span class="service-status">Vérification...</span>
+                </div>
+                <div class="service-item service-offline">
+                    <div class="service-dot dot-offline"></div>
+                    <span class="service-name">Chat Service (5001)</span>
+                    <span class="service-status">Vérification...</span>
+                </div>
+                <div class="service-item service-offline">
+                    <div class="service-dot dot-offline"></div>
+                    <span class="service-name">IA Service (5002)</span>
+                    <span class="service-status">Vérification...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Rapides -->
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+                <div class="card-icon icon-green">⚡</div>
+                <div class="card-title">Actions Rapides</div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startSimulator()">▶️ Démarrer Simulateur</button>
+                <button class="btn btn-success" onclick="refreshData()">🔄 Rafraîchir</button>
+                <button class="btn btn-primary" onclick="viewLogs()">📋 Voir Logs</button>
+            </div>
+        </div>
+
+        <!-- Dernières Alertes -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon icon-red">🚨</div>
+                <div class="card-title">Dernières Alertes</div>
+            </div>
+            <div class="alerts-list" id="alertsList">
+                <div class="alert-item alert-low">
+                    <div class="alert-icon">ℹ️</div>
+                    <div class="alert-content">
+                        <div class="alert-title">Chargement des alertes...</div>
+                        <div class="alert-time">Veuillez patienter</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Dashboard Frigo Diagnostic v1.0 | <span id="footerTime"></span>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let refreshInterval;
+
+        // Mettre à jour l'heure
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('footerTime').textContent = now.toLocaleString('fr-FR');
+            document.getElementById('lastUpdate').textContent = now.toLocaleTimeString('fr-FR');
+        }
+
+        // Récupérer les métriques
+        async function fetchMetrics() {
+            try {
+                document.getElementById('systemStatus').classList.add('updating');
+                
+                const response = await fetch(`${API_BASE}/api/dashboard/metrics`);
+                if (!response.ok) throw new Error('Erreur API');
+                
+                const data = await response.json();
+                updateDashboard(data);
+                
+                document.getElementById('systemStatus').classList.remove('updating');
+            } catch (error) {
+                console.error('Erreur fetch:', error);
+                showOffline();
+            }
+        }
+
+        // Mettre à jour le dashboard
+        function updateDashboard(data) {
+            // Diagnostics
+            document.getElementById('totalDiagnostics').textContent = data.total_diagnostics || 0;
+            const diagProgress = Math.min((data.total_diagnostics % 1000) / 10, 100);
+            document.getElementById('diagnosticsProgress').style.width = `${diagProgress}%`;
+            
+            // Taux de détection
+            const rate = data.detection_rate || 0;
+            document.getElementById('detectionRate').textContent = `${rate.toFixed(1)}%`;
+            document.getElementById('detectionProgress').style.width = `${Math.min(rate, 100)}%`;
+            
+            // Réentraînements
+            document.getElementById('totalRetrains').textContent = data.total_retrains || 0;
+            const nextAt = Math.ceil((data.total_diagnostics || 0) / 1000) * 1000;
+            document.getElementById('nextRetrain').textContent = nextAt;
+            const retrainProgress = ((data.total_diagnostics % 1000) / 1000) * 100;
+            document.getElementById('retrainProgress').style.width = `${retrainProgress}%`;
+            
+            // Pannes aujourd'hui
+            document.getElementById('pannesToday').textContent = data.pannes_today || 0;
+            
+            // État système
+            const allOnline = data.services && data.services.every(s => s.online);
+            const statusBadge = document.getElementById('systemStatus');
+            if (allOnline) {
+                statusBadge.textContent = '✅ Système Opérationnel';
+                statusBadge.className = 'status-badge status-online';
+            } else {
+                statusBadge.textContent = '⚠️ Service Partiel';
+                statusBadge.className = 'status-badge status-offline';
+            }
+            
+            // Services
+            const servicesGrid = document.getElementById('servicesGrid');
+            servicesGrid.innerHTML = '';
+            if (data.services) {
+                data.services.forEach(service => {
+                    const div = document.createElement('div');
+                    div.className = `service-item ${service.online ? 'service-online' : 'service-offline'}`;
+                    div.innerHTML = `
+                        <div class="service-dot ${service.online ? 'dot-online' : 'dot-offline'}"></div>
+                        <span class="service-name">${service.name}</span>
+                        <span class="service-status">${service.online ? 'En ligne' : 'Hors ligne'}</span>
+                    `;
+                    servicesGrid.appendChild(div);
+                });
+            }
+            
+            // Alertes
+            const alertsList = document.getElementById('alertsList');
+            alertsList.innerHTML = '';
+            if (data.recent_alerts && data.recent_alerts.length > 0) {
+                data.recent_alerts.forEach(alert => {
+                    const div = document.createElement('div');
+                    const severityClass = alert.severity === 'high' ? 'alert-high' : 
+                                         alert.severity === 'medium' ? 'alert-medium' : 'alert-low';
+                    const icon = alert.severity === 'high' ? '🔴' : 
+                                alert.severity === 'medium' ? '🟠' : '🔵';
+                    div.className = `alert-item ${severityClass}`;
+                    div.innerHTML = `
+                        <div class="alert-icon">${icon}</div>
+                        <div class="alert-content">
+                            <div class="alert-title">${alert.title}</div>
+                            <div class="alert-time">${alert.time}</div>
+                        </div>
+                    `;
+                    alertsList.appendChild(div);
+                });
+            } else {
+                alertsList.innerHTML = `
+                    <div class="alert-item alert-low">
+                        <div class="alert-icon">✅</div>
+                        <div class="alert-content">
+                            <div class="alert-title">Aucune alerte récente</div>
+                            <div class="alert-time">Système fonctionne normalement</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Mode hors ligne
+        function showOffline() {
+            document.getElementById('systemStatus').textContent = '❌ Hors ligne';
+            document.getElementById('systemStatus').className = 'status-badge status-offline';
+        }
+
+        // Actions
+        async function startSimulator() {
+            try {
+                const response = await fetch(`${API_BASE}/api/simulator/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cycles: 5, interval: 5 })
+                });
+                if (response.ok) {
+                    alert('✅ Simulateur démarré !');
+                } else {
+                    alert('❌ Erreur lors du démarrage');
+                }
+            } catch (e) {
+                alert('❌ Impossible de contacter le serveur');
+            }
+        }
+
+        function refreshData() {
+            fetchMetrics();
+        }
+
+        function viewLogs() {
+            window.open('/api/logs', '_blank');
+        }
+
+        // Initialisation
+        function init() {
+            updateTime();
+            fetchMetrics();
+            refreshInterval = setInterval(() => {
+                updateTime();
+                fetchMetrics();
+            }, 5000); // Rafraîchir toutes les 5 secondes
+        }
+
+        // Démarrer
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Nettoyage
+        window.addEventListener('beforeunload', () => {
+            if (refreshInterval) clearInterval(refreshInterval);
+        });
+    </script>
+</body>
+</html>

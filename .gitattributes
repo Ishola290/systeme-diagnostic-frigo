@@ -1,0 +1,31 @@
+# Git LFS - Suivi des gros fichiers modèles
+
+# Fichiers safetensors (modèles PyTorch)
+*.safetensors filter=lfs diff=lfs merge=lfs -text
+
+# Fichiers bin (anciennes versions)
+*.bin filter=lfs diff=lfs merge=lfs -text
+
+# Fichiers de poids numpy
+*.npz filter=lfs diff=lfs merge=lfs -text
+
+# Fichiers ONNX
+*.onnx filter=lfs diff=lfs merge=lfs -text
+
+# Archives
+*.tar.gz filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
+
+# Fichiers CSV volumineux (si datasets)
+*.csv filter=lfs diff=lfs merge=lfs -text
+
+# Fichiers JSON volumineux
+*.json filter=lfs diff=lfs merge=lfs -text
+
+# Fichiers JSONL (logs, datasets ligne par ligne)
+*.jsonl filter=lfs diff=lfs merge=lfs -text
+
+# Images
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.gif filter=lfs diff=lfs merge=lfs -text
