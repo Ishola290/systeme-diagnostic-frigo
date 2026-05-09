@@ -24,6 +24,8 @@ try:
     )
     POSTGRES_AVAILABLE = True
 except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
     logger.warning("⚠️ db_postgres non disponible, utilisation mode fichier")
     POSTGRES_AVAILABLE = False
     
