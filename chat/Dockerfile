@@ -28,6 +28,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 
 
 # Copier l'application
+COPY db_postgres.py .
 COPY chat/ .
 
 # Copier les modèles (optionnel pour ce service, mais utile pour cohabitation)
