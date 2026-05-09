@@ -45,6 +45,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier l'application gpt/
+COPY services/ ./services/
 COPY . .
 
 # Créer les répertoires nécessaires
