@@ -225,7 +225,7 @@ function renderAlerts() {
         return;
     }
     
-    alertsList.innerHTML = allAlerts.map(alert => `
+    alertsList.innerHTML = [...allAlerts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(alert => `
         <div class="alert-item ${alert.is_read ? '' : 'unread'} ${alert.severity === 'critical' ? 'critical' : ''}">
             <div class="alert-content">
                 <div class="alert-title">${alert.title}</div>
