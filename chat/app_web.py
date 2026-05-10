@@ -141,6 +141,11 @@ def dashboard():
     """Dashboard principal - Sans authentification"""
     return render_template('dashboard.html', username="Invité")
 
+@app.route('/demo')
+def demo():
+    """Page de démonstration pour le jury"""
+    return render_template('demo.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login désactivé - Redirection vers dashboard"""
