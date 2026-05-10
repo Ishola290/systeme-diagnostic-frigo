@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY services/ ./services/
 
 # Copier le code gpt/
+COPY db_postgres.py .
 COPY . .
 
 RUN mkdir -p /app/logs /app/models /app/cache
