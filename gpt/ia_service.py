@@ -91,7 +91,7 @@ class IAService:
         self.model = None
         self.tokenizer = None
         self.text_generator = None
-        self.conversation_history = []
+        self.conversation_history = {}  # {user_id: [messages]}
         self.knowledge_base = {}
         self.model_info = {}
         
@@ -512,10 +512,11 @@ class IAService:
     
     def _get_context(self, message, user_id):
         """Récupérer le contexte pertinent"""
+        user_history = self.conversation_history.get(str(user_id), [])
         context = {
             'message': message,
             'user_id': user_id,
-            'history': self.conversation_history[-self.config.CONTEXT_SIZE:],
+            'history': user_history[-self.config.CONTEXT_SIZE:],
             'knowledge': self._search_knowledge_base(message)
         }
         return context
@@ -670,19 +671,19 @@ Reponse courte et technique:"""
         return solutions[:3]  # Top 3 solutions
     
     def _save_to_history(self, user_id, message, response):
-        """Sauvegarder dans l'historique"""
-        entry = {
-            'user_id': user_id,
+        uid = str(user_id) if user_id else 'anonymous'
+        if uid not in self.conversation_history:
+            self.conversation_history[uid] = []
+        self.conversation_history[uid].append({
             'message': message,
             'response': response,
             'timestamp': datetime.now().isoformat()
-        }
-        self.conversation_history.append(entry)
+        })
+        # Garder seulement les 20 derniers messages par utilisateur
+        if len(self.conversation_history[uid]) > 20:
+            self.conversation_history[uid] = self.conversation_history[uid][-20:]
         
-        # Garder seulement les N derniers messages
-        if len(self.conversation_history) > 100:
-            self.conversation_history = self.conversation_history[-100:]
-    
+       
     def add_to_knowledge_base(self, topic, content):
         """Ajouter une entrée à la base de connaissances"""
         self.knowledge_base[topic] = content
@@ -698,7 +699,7 @@ Reponse courte et technique:"""
         """Obtenir les statistiques du service"""
         return {
             'model': self.model_name,
-            'messages_processed': len(self.conversation_history),
+            'messages_processed': sum(len(v) for v in self.conversation_history.values()),
             'knowledge_base_size': len(self.knowledge_base),
             'uptime': datetime.now().isoformat()
         }
