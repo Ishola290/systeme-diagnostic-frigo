@@ -46,7 +46,7 @@ class GPT4Service:
             self.client = openai.OpenAI(**client_kwargs)
             logger.info(f"✅ GPT-4 initialisé avec modèle: {model_name}")
     
-    def generer_analyse_sync(self, prompt: str, max_tokens: int = 1000) -> Dict:
+    def generer_analyse_sync(self, prompt: str, max_tokens: int = 1000, system_prompt: str = None) -> Dict:
         """
         Génère une analyse avec GPT-4 (synchrone)
         
@@ -70,10 +70,11 @@ class GPT4Service:
             start_time = time.time()
             logger.info(f"🤖 GPT-4 analyse en cours...")
             
+            sys_msg = system_prompt or "Tu es un expert en diagnostic de systèmes frigorifiques industriels."
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
-                    {"role": "system", "content": "Tu es un expert en diagnostic de systèmes frigorifiques industriels."},
+                    {"role": "system", "content": sys_msg},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=max_tokens,
