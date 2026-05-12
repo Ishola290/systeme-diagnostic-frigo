@@ -143,7 +143,7 @@ class IAService:
             except Exception as e:
                 logger.error(f"❌ Erreur connexion GPT-4: {e}")
     
-    def process_chat (self, message, user_id=None):
+    def process_chat(self, message, user_id=None, user_name=None, source=None, model=None):
         try:
             logger.info(f"💬 Message reçu: {message[:50]}...")
             uid = str(user_id) if user_id else 'anonymous'
@@ -171,15 +171,15 @@ class IAService:
     
     Réponds toujours en français, de façon claire et professionnelle."""
     
-            # Construction messages avec historique utilisateur
-            messages = [{"role": "system", "content": system_prompt}]
-            for h in history:
-                messages.append({"role": "user", "content": h['message']})
-                messages.append({"role": "assistant", "content": h['response']})
-            messages.append({"role": "user", "content": message})
     
             # Appel GPT-4
-            response_text = self.gpt4_service.chat(messages)
+            # Appel GPT-4
+            prompt_complet = f"{system_prompt}\n\nUtilisateur: {message}"
+            gpt_result = self.gpt4_service.generer_analyse_sync(prompt_complet)
+            if gpt_result.get('success'):
+                response_text = gpt_result.get('analyse', 'Pas de réponse.')
+            else:
+                response_text = f"Erreur GPT: {gpt_result.get('error', 'inconnue')}"
     
             # Sauvegarder dans l'historique de l'utilisateur
             self.conversation_history[uid].append({
@@ -204,47 +204,47 @@ class IAService:
                 'response': 'Erreur lors du traitement du message'
             }
 
-def _get_system_context(self):
-    """Récupère l'état live du système pour informer GPT"""
-    try:
-        import requests, os
-        app_url = os.environ.get('MAIN_APP_URL', 'https://frigo-app.onrender.com')
-        chat_url = os.environ.get('CHAT_API_URL', 'https://frigo-chat.onrender.com')
-
-        context_parts = []
-
-        # Stats app
+    def _get_system_context(self):
+        """Récupère l'état live du système pour informer GPT"""
         try:
-            r = requests.get(f"{app_url}/stats", timeout=3)
-            if r.ok:
-                s = r.json()
-                context_parts.append(f"- Total diagnostics effectués : {s.get('total_diagnostics', 0)}")
-                context_parts.append(f"- Total pannes détectées : {s.get('total_pannes_detectees', 0)}")
-                context_parts.append(f"- Taux de pannes : {s.get('taux_pannes', 0):.1f}%")
-                context_parts.append(f"- Réentraînements effectués : {s.get('retrainings_effectues', 0)}")
-                pannes = s.get('pannes_par_type', {})
-                if pannes:
-                    context_parts.append(f"- Pannes par type : {', '.join([f'{k}({v})' for k,v in pannes.items()])}")
-        except:
-            context_parts.append("- Stats app : indisponibles")
-
-        # Alertes récentes
-        try:
-            r2 = requests.get(f"{chat_url}/api/alerts?limit=3", timeout=3)
-            if r2.ok:
-                alerts = r2.json()
-                if alerts:
-                    context_parts.append(f"- Dernières alertes ({len(alerts)}) :")
-                    for a in alerts[:3]:
-                        context_parts.append(f"  • {a.get('title','?')} [{a.get('severity','?')}]")
-                else:
-                    context_parts.append("- Aucune alerte récente")
-        except:
-            context_parts.append("- Alertes : indisponibles")
-
-        return '\n'.join(context_parts) if context_parts else "Données système indisponibles"
-    except Exception as e:
-        return f"Erreur récupération contexte: {e}"
+            import requests, os
+            app_url = os.environ.get('MAIN_APP_URL', 'https://frigo-app.onrender.com')
+            chat_url = os.environ.get('CHAT_API_URL', 'https://frigo-chat.onrender.com')
+    
+            context_parts = []
+    
+            # Stats app
+            try:
+                r = requests.get(f"{app_url}/stats", timeout=3)
+                if r.ok:
+                    s = r.json()
+                    context_parts.append(f"- Total diagnostics effectués : {s.get('total_diagnostics', 0)}")
+                    context_parts.append(f"- Total pannes détectées : {s.get('total_pannes_detectees', 0)}")
+                    context_parts.append(f"- Taux de pannes : {s.get('taux_pannes', 0):.1f}%")
+                    context_parts.append(f"- Réentraînements effectués : {s.get('retrainings_effectues', 0)}")
+                    pannes = s.get('pannes_par_type', {})
+                    if pannes:
+                        context_parts.append(f"- Pannes par type : {', '.join([f'{k}({v})' for k,v in pannes.items()])}")
+            except:
+                context_parts.append("- Stats app : indisponibles")
+    
+            # Alertes récentes
+            try:
+                r2 = requests.get(f"{chat_url}/api/alerts?limit=3", timeout=3)
+                if r2.ok:
+                    alerts = r2.json()
+                    if alerts:
+                        context_parts.append(f"- Dernières alertes ({len(alerts)}) :")
+                        for a in alerts[:3]:
+                            context_parts.append(f"  • {a.get('title','?')} [{a.get('severity','?')}]")
+                    else:
+                        context_parts.append("- Aucune alerte récente")
+            except:
+                context_parts.append("- Alertes : indisponibles")
+    
+            return '\n'.join(context_parts) if context_parts else "Données système indisponibles"
+        except Exception as e:
+            return f"Erreur récupération contexte: {e}"
     
     def _detect_database_query(self, message):
         """
