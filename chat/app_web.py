@@ -364,6 +364,18 @@ def receive_diagnostic():
 
 # ==================== WEBSOCKET ====================
 
+@app.route('/api/proxy/simulate', methods=['POST'])
+def proxy_simulate():
+    """Proxy pour éviter CORS dans la démo"""
+    try:
+        import requests as req
+        data = request.get_json()
+        app_url = os.environ.get('MAIN_APP_URL', 'https://frigo-app.onrender.com')
+        r = req.post(f"{app_url}/webhook/diagnostic-frigo", json=data, timeout=25)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @socketio.on('connect')
 def handle_connect():
     """Connexion WebSocket"""
