@@ -1205,7 +1205,10 @@ function showTyping(show) {
 }
 
 // ===== DATA LOADING =====
+let messagesLoaded = false;
 async function loadMessages() {
+    if (messagesLoaded) return;
+    messagesLoaded = true;
     try {
         const r = await fetch('/api/messages');
         if (r.ok) {
@@ -1214,7 +1217,6 @@ async function loadMessages() {
         }
     } catch(e) {}
 }
-
 async function loadAlerts() {
     try {
         const r = await fetch('/api/alerts?limit=100');
@@ -1456,7 +1458,7 @@ async function lancerDemo() {
     log('🔄 Envoi vers le service App pour orchestration...', 'info');
 
     try {
-        const r = await fetch(`${APP_URL}/webhook/diagnostic-frigo`, {
+        const r = await fetch(`/api/proxy/simulate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...scenario.data, source: 'demo', localisation: 'Démonstration Jury' })
@@ -1545,7 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('userAvatar').textContent = uname[0].toUpperCase();
 
     // Socket events
-    socket.on('connect', () => { loadMessages(); loadAlerts(); loadStats(); loadDiagnostics(); });
+    socket.on('connect', () => { loadAlerts(); loadStats(); loadDiagnostics(); });
     socket.on('new_message', d => { showTyping(false); appendMsg(d.content, d.is_from_system ? 'system' : 'user'); });
     socket.on('typing', d => showTyping(d.status === 'typing'));
     socket.on('new_alert', d => {
