@@ -175,7 +175,11 @@ class IAService:
             # Appel GPT-4
             # Appel GPT-4
             prompt_complet = f"{system_prompt}\n\nUtilisateur: {message}"
-            gpt_result = self.gpt4_service.generer_analyse_sync(prompt_complet)
+            gpt_result = self.gpt4_service.generer_analyse_sync(
+                prompt=message,
+                max_tokens=800,
+                system_prompt=system_prompt
+            )
             if gpt_result.get('success'):
                 response_text = gpt_result.get('analyse', 'Pas de réponse.')
             else:
