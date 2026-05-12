@@ -1032,9 +1032,17 @@
                     <p>Choisissez un scénario et observez le système détecter la panne, l'analyser par GPT-4.1-mini et envoyer l'alerte — en temps réel.</p>
                     <div class="demo-controls">
                         <select class="scenario-select" id="scenarioSelect">
-                            <option value="hp">🔴 Pression HP anormale (urgente)</option>
+                            <option value="hp">🔴 Pression HP anormale</option>
+                            <option value="bp">🟠 Pression BP anormale</option>
+                            <option value="compresseur">🔴 Défaillance compresseur</option>
                             <option value="ventilateur">🟠 Défaillance ventilateur</option>
-                            <option value="temperature">🟡 Température critique</option>
+                            <option value="fuite">🔴 Fuite fluide frigorigène</option>
+                            <option value="givrage">🟡 Givrage évaporateur</option>
+                            <option value="electrique">🔴 Panne électrique</option>
+                            <option value="obstruction">🟡 Obstruction conduit</option>
+                            <option value="capteur">🟡 Capteur défectueux</option>
+                            <option value="degivrage">🟡 Défaut dégivrage</option>
+                            <option value="thermostat">🟡 Défaillance thermostat</option>
                             <option value="normal">✅ Fonctionnement normal</option>
                         </select>
                         <button class="btn btn-success" id="demoBtn" onclick="lancerDemo()">
@@ -1114,10 +1122,26 @@ let currentTab = 'chat';
 const scenarios = {
     hp: { label: 'Pression HP anormale', color: '#ff5470',
         data: { "Température": 18, "Pression_HP": 28, "Pression_BP": 2.5, "Courant": 14, "Tension": 220, "Humidité": 75, "Débit_air": 350, "Vibration": 0.6 } },
+    bp: { label: 'Pression BP anormale', color: '#ff8c42',
+        data: { "Température": -5, "Pression_HP": 13, "Pression_BP": 0.8, "Courant": 10, "Tension": 220, "Humidité": 65, "Débit_air": 400, "Vibration": 0.3 } },
+    compresseur: { label: 'Défaillance compresseur', color: '#ff2d55',
+        data: { "Température": 22, "Pression_HP": 26, "Pression_BP": 1.5, "Courant": 22, "Tension": 380, "Humidité": 70, "Débit_air": 380, "Vibration": 2.8 } },
     ventilateur: { label: 'Défaillance ventilateur', color: '#ffb547',
         data: { "Température": 8, "Pression_HP": 14, "Pression_BP": 2.2, "Courant": 19, "Tension": 380, "Humidité": 90, "Débit_air": 55, "Vibration": 0.7 } },
-    temperature: { label: 'Température critique', color: '#ffb547',
-        data: { "Température": 25, "Pression_HP": 22, "Pression_BP": 1.8, "Courant": 16, "Tension": 220, "Humidité": 85, "Débit_air": 200, "Vibration": 0.4 } },
+    fuite: { label: 'Fuite fluide frigorigène', color: '#ff5470',
+        data: { "Température": 15, "Pression_HP": 10, "Pression_BP": 0.9, "Courant": 18, "Tension": 220, "Humidité": 68, "Débit_air": 420, "Vibration": 0.4 } },
+    givrage: { label: 'Givrage évaporateur', color: '#ffb547',
+        data: { "Température": -8, "Pression_HP": 12, "Pression_BP": 1.2, "Courant": 13, "Tension": 220, "Humidité": 95, "Débit_air": 80, "Vibration": 0.3 } },
+    electrique: { label: 'Panne électrique', color: '#ff2d55',
+        data: { "Température": 10, "Pression_HP": 14, "Pression_BP": 2.8, "Courant": 28, "Tension": 180, "Humidité": 60, "Débit_air": 400, "Vibration": 0.5 } },
+    obstruction: { label: 'Obstruction conduit', color: '#ffb547',
+        data: { "Température": 12, "Pression_HP": 15, "Pression_BP": 1.6, "Courant": 14, "Tension": 220, "Humidité": 72, "Débit_air": 60, "Vibration": 0.4 } },
+    capteur: { label: 'Capteur défectueux', color: '#ffb547',
+        data: { "Température": 45, "Pression_HP": 14, "Pression_BP": 2.9, "Courant": 25, "Tension": 220, "Humidité": 65, "Débit_air": 400, "Vibration": 0.3 } },
+    degivrage: { label: 'Défaut dégivrage', color: '#ffb547',
+        data: { "Température": -10, "Pression_HP": 11, "Pression_BP": 1.1, "Courant": 12, "Tension": 220, "Humidité": 88, "Débit_air": 70, "Vibration": 0.3 } },
+    thermostat: { label: 'Défaillance thermostat', color: '#ffb547',
+        data: { "Température": 30, "Pression_HP": 20, "Pression_BP": 3.2, "Courant": 20, "Tension": 220, "Humidité": 65, "Débit_air": 400, "Vibration": 0.4 } },
     normal: { label: 'Fonctionnement normal', color: '#00d97e',
         data: { "Température": 4, "Pression_HP": 14, "Pression_BP": 3, "Courant": 12, "Tension": 380, "Humidité": 60, "Débit_air": 450, "Vibration": 0.2 } }
 };
