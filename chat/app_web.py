@@ -422,6 +422,7 @@ def handle_send_message(data):
     emit('typing', {'user': 'IA', 'status': 'typing'})
     
     # Envoyer au service IA pour traitement avec le modèle
+    # Envoyer au service IA pour traitement avec le modèle
     try:
         ia_response = requests.post(
             f"{IA_SERVICE_URL}/api/chat/message",
@@ -430,9 +431,9 @@ def handle_send_message(data):
                 'user_id': user_id,
                 'user_name': user_name,
                 'source': 'chat_web',
-                'model': model  # Ajouter le modèle demandé
+                'model': model
             },
-            timeout=30
+            timeout=60
         )
         
         if ia_response.status_code == 200:
