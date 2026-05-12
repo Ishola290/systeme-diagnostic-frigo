@@ -81,7 +81,7 @@ class IAService:
             self.config.ANALYSIS_STRATEGY = 'gpt4_only'
             self.config.PRIMARY_MODEL = 'gpt4'
 
-        self.conversation_history = []
+        self.conversation_history = {}  # {user_id: [messages]}
         self.knowledge_base = {}
         self.model_info = {}
 
@@ -143,74 +143,108 @@ class IAService:
             except Exception as e:
                 logger.error(f"❌ Erreur connexion GPT-4: {e}")
     
-    def process_chat(self, message, user_id='user', user_name='Utilisateur', 
-                     context=None, source='chat', model=None):
-        """
-        Traiter un message de chat avec détection automatique du modèle demandé
-        et des requêtes sur la base de données
-        """
+    def process_chat (self, message, user_id=None):
         try:
-            logger.info(f"💬 Traitement message de {user_name}: {message[:50]}...")
-            
-            # Vérifier si c'est une requête sur la base de données
-            db_query = self._detect_database_query(message)
-            if db_query:
-                logger.info(f"🔍 Requête BD détectée: {db_query}")
-                return self._handle_database_query(message, db_query, user_id, user_name)
-            
-            # Utiliser le modèle spécifié ou détecter automatiquement
-            target_model = model or self._detect_requested_model(message)
-            
-            if target_model:
-                logger.info(f"🎯 Modèle spécifique demandé: {target_model}")
-                result = self._analyze_with_specific_model(message, target_model)
-            else:
-                # Construire le prompt avec contexte frigorifique
-                system_prompt = self._build_system_prompt(context)
-                full_prompt = f"{system_prompt}\n\nUtilisateur: {message}\n\nAssistant:"
-                
-                # Appliquer la stratégie d'analyse par défaut
-                if self.config.ANALYSIS_STRATEGY == 'gemini_only':
-                    result = self._analyze_with_gemini(full_prompt)
-                elif self.config.ANALYSIS_STRATEGY == 'gpt4_only':
-                    result = self._analyze_with_gpt4(full_prompt)
-                elif self.config.ANALYSIS_STRATEGY == 'dual_compare':
-                    result = self._analyze_with_comparison(full_prompt)
-                else:  # primary_fallback (défaut)
-                    result = self._analyze_with_primary_fallback(full_prompt)
-            
-            if result.get('success'):
-                response_text = result.get('response', 'Je ne peux pas répondre pour le moment.')
-                
-                # Nettoyer la réponse
-                response_text = self._clean_response(response_text)
-                
-                logger.info(f"✅ Réponse générée avec {result.get('model_used', 'inconnu')} ({len(response_text)} caractères)")
-                
-                return {
-                    'success': True,
-                    'response': response_text,
-                    'user_id': user_id,
-                    'user_name': user_name,
-                    'model': result.get('model_used', 'inconnu'),
-                    'timestamp': datetime.now().isoformat(),
-                    'processing_time': result.get('processing_time', 0)
-                }
-            else:
-                logger.error(f"❌ Erreur analyse: {result.get('error', 'Inconnue')}")
-                return {
-                    'success': False,
-                    'error': result.get('error', 'Erreur IA'),
-                    'response': "Service IA temporairement indisponible."
-                }
-                
+            logger.info(f"💬 Message reçu: {message[:50]}...")
+            uid = str(user_id) if user_id else 'anonymous'
+    
+            # Historique isolé par utilisateur
+            if uid not in self.conversation_history:
+                self.conversation_history[uid] = []
+            history = self.conversation_history[uid][-8:]
+    
+            # Contexte live du système
+            system_context = self._get_system_context()
+    
+            # Prompt système enrichi
+            system_prompt = f"""Tu es l'assistant IA du Système de Diagnostic Frigorifique FrigoDiag.
+    Tu connais en temps réel l'état complet du système.
+    
+    === ÉTAT ACTUEL DU SYSTÈME ===
+    {system_context}
+    
+    === TES CAPACITÉS ===
+    - Répondre aux questions sur l'état du système (stats, alertes, diagnostics)
+    - Analyser les pannes frigorifiques et donner des recommandations techniques
+    - Expliquer le fonctionnement des 12 modèles de prédiction
+    - Guider les techniciens dans la résolution des pannes
+    
+    Réponds toujours en français, de façon claire et professionnelle."""
+    
+            # Construction messages avec historique utilisateur
+            messages = [{"role": "system", "content": system_prompt}]
+            for h in history:
+                messages.append({"role": "user", "content": h['message']})
+                messages.append({"role": "assistant", "content": h['response']})
+            messages.append({"role": "user", "content": message})
+    
+            # Appel GPT-4
+            response_text = self.gpt4_service.chat(messages)
+    
+            # Sauvegarder dans l'historique de l'utilisateur
+            self.conversation_history[uid].append({
+                'message': message,
+                'response': response_text,
+                'timestamp': datetime.now().isoformat()
+            })
+            if len(self.conversation_history[uid]) > 20:
+                self.conversation_history[uid] = self.conversation_history[uid][-20:]
+    
+            return {
+                'success': True,
+                'response': response_text,
+                'intent': 'general',
+                'timestamp': datetime.now().isoformat()
+            }
         except Exception as e:
-            logger.error(f"❌ Erreur traitement: {e}")
+            logger.error(f"❌ Erreur traitement message: {e}")
             return {
                 'success': False,
                 'error': str(e),
-                'response': "Erreur de communication avec l'IA."
+                'response': 'Erreur lors du traitement du message'
             }
+
+def _get_system_context(self):
+    """Récupère l'état live du système pour informer GPT"""
+    try:
+        import requests, os
+        app_url = os.environ.get('MAIN_APP_URL', 'https://frigo-app.onrender.com')
+        chat_url = os.environ.get('CHAT_API_URL', 'https://frigo-chat.onrender.com')
+
+        context_parts = []
+
+        # Stats app
+        try:
+            r = requests.get(f"{app_url}/stats", timeout=3)
+            if r.ok:
+                s = r.json()
+                context_parts.append(f"- Total diagnostics effectués : {s.get('total_diagnostics', 0)}")
+                context_parts.append(f"- Total pannes détectées : {s.get('total_pannes_detectees', 0)}")
+                context_parts.append(f"- Taux de pannes : {s.get('taux_pannes', 0):.1f}%")
+                context_parts.append(f"- Réentraînements effectués : {s.get('retrainings_effectues', 0)}")
+                pannes = s.get('pannes_par_type', {})
+                if pannes:
+                    context_parts.append(f"- Pannes par type : {', '.join([f'{k}({v})' for k,v in pannes.items()])}")
+        except:
+            context_parts.append("- Stats app : indisponibles")
+
+        # Alertes récentes
+        try:
+            r2 = requests.get(f"{chat_url}/api/alerts?limit=3", timeout=3)
+            if r2.ok:
+                alerts = r2.json()
+                if alerts:
+                    context_parts.append(f"- Dernières alertes ({len(alerts)}) :")
+                    for a in alerts[:3]:
+                        context_parts.append(f"  • {a.get('title','?')} [{a.get('severity','?')}]")
+                else:
+                    context_parts.append("- Aucune alerte récente")
+        except:
+            context_parts.append("- Alertes : indisponibles")
+
+        return '\n'.join(context_parts) if context_parts else "Données système indisponibles"
+    except Exception as e:
+        return f"Erreur récupération contexte: {e}"
     
     def _detect_database_query(self, message):
         """
