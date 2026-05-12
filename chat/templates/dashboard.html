@@ -1175,7 +1175,8 @@ document.getElementById('modelSelect').addEventListener('change', e => {
 function sendMessage() {
     const input = document.getElementById('messageInput');
     const msg = input.value.trim();
-    if (!msg) return;
+    if (!msg || msg.length < 1) return;
+    document.getElementById('sendBtn').disabled = true;
     const model = document.getElementById('modelSelect').value;
     appendMsg(msg, 'user');
     input.value = '';
@@ -1548,7 +1549,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Socket events
     socket.on('connect', () => { loadAlerts(); loadStats(); loadDiagnostics(); });
-    socket.on('new_message', d => { showTyping(false); appendMsg(d.content, d.is_from_system ? 'system' : 'user'); });
+    socket.on('new_message', d => {
+        showTyping(false);
+        // N'affiche que les messages du système (réponses IA)
+        // Les messages utilisateur sont déjà affichés par sendMessage()
+        document.getElementById('sendBtn').disabled = false;
+        if (d.is_from_system) {
+            appendMsg(d.content, 'system');
+        }
+    });
     socket.on('typing', d => showTyping(d.status === 'typing'));
     socket.on('new_alert', d => {
         allAlerts.unshift(d);
