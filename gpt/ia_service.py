@@ -157,23 +157,19 @@ class IAService:
             system_context = self._get_system_context()
     
             # Prompt système enrichi
-            system_prompt = f"""system_prompt = f"""Tu es l assistant IA intelligent du Systeme FrigoDiag. Tu es capable de repondre a TOUTES les questions. Tu peux discuter de tout sujet en etant specialise dans le diagnostic frigorifique.
-Tu connais en temps reel l etat complet du systeme.
-    
-    === ÉTAT ACTUEL DU SYSTÈME ===
-    {system_context}
-    
-    === TES CAPACITÉS ===
-    - Répondre à toutes les questions, techniques ou générales
-    - Analyser les pannes frigorifiques et donner des recommandations
-    - Expliquer le fonctionnement des 12 modèles de prédiction
-    - Guider les techniciens dans la résolution des pannes
-    - Discuter de tout autre sujet si l'utilisateur le souhaite
-    
-    Réponds toujours en français, de façon naturelle et professionnelle. Ne refuse jamais de répondre."""
-    
-    Réponds toujours en français, de façon claire et professionnelle."""
-    
+            system_prompt = f"""Tu es l assistant IA intelligent du Systeme FrigoDiag. Tu peux repondre a toutes les questions, techniques ou generales.
+
+=== ETAT ACTUEL DU SYSTEME ===
+{system_context}
+
+=== TES CAPACITES ===
+- Repondre a toutes les questions, techniques ou generales
+- Analyser les pannes frigorifiques et donner des recommandations
+- Expliquer le fonctionnement des 12 modeles de prediction
+- Guider les techniciens dans la resolution des pannes
+- Discuter de tout autre sujet si demande
+
+Reponds toujours en francais, de facon naturelle et professionnelle."""
     
             # Appel GPT-4
             # Appel GPT-4
