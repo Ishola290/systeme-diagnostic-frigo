@@ -217,9 +217,9 @@ Tu connais en temps réel l'état complet du système.
             import requests, os
             app_url = os.environ.get('MAIN_APP_URL', 'https://frigo-app.onrender.com')
             chat_url = os.environ.get('CHAT_API_URL', 'https://frigo-chat.onrender.com')
-    
+
             context_parts = []
-    
+
             # Stats app
             try:
                 r = requests.get(f"{app_url}/stats", timeout=3)
@@ -234,7 +234,7 @@ Tu connais en temps réel l'état complet du système.
                         context_parts.append(f"- Pannes par type : {', '.join([f'{k}({v})' for k,v in pannes.items()])}")
             except:
                 context_parts.append("- Stats app : indisponibles")
-    
+
             # Alertes récentes
             try:
                 r2 = requests.get(f"{chat_url}/api/alerts?limit=3", timeout=3)
@@ -248,7 +248,7 @@ Tu connais en temps réel l'état complet du système.
                         context_parts.append("- Aucune alerte récente")
             except:
                 context_parts.append("- Alertes : indisponibles")
-    
+
             return '\n'.join(context_parts) if context_parts else "Données système indisponibles"
         except Exception as e:
             return f"Erreur récupération contexte: {e}"
