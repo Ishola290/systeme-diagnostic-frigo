@@ -1216,7 +1216,7 @@ async function loadMessages() {
     if (messagesLoaded) return;
     messagesLoaded = true;
     try {
-        const r = await fetch('/api/messages');
+        const r = await fetch('/api/messages?limit=200');
         if (r.ok) {
             const msgs = await r.json();
             msgs.forEach(m => appendMsg(m.content, m.is_from_system ? 'system' : 'user'));
