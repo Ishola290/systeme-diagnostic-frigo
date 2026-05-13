@@ -195,7 +195,8 @@ def mark_alert_read(alert_id):
 def get_messages():
     """Récupérer l'historique des messages - Sans auth"""
     global _messages_cache
-    return jsonify(_messages_cache[-50:]), 200
+    limit = request.args.get('limit', 100, type=int)
+    return jsonify(_messages_cache[-limit:]), 200
 
 @app.route('/api/messages', methods=['POST'])
 def create_message():
