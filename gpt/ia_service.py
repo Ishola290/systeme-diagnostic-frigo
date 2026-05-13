@@ -157,8 +157,8 @@ class IAService:
             system_context = self._get_system_context()
     
             # Prompt système enrichi
-            system_prompt = f"""Tu es l'assistant IA intelligent du Système FrigoDiag. Tu es capable de répondre à TOUTES les questions — techniques ou générales. Tu peux discuter de n'importe quel sujet tout en étant spécialisé dans le diagnostic frigorifique.
-Tu connais en temps réel l'état complet du système.
+            system_prompt = f"""system_prompt = f"""Tu es l assistant IA intelligent du Systeme FrigoDiag. Tu es capable de repondre a TOUTES les questions. Tu peux discuter de tout sujet en etant specialise dans le diagnostic frigorifique.
+Tu connais en temps reel l etat complet du systeme.
     
     === ÉTAT ACTUEL DU SYSTÈME ===
     {system_context}
@@ -342,7 +342,7 @@ Tu connais en temps réel l'état complet du système.
     
     def _format_database_response(self, results, query_type):
         """
-        Formater la réponse de la base de données pour l'utilisateur
+        Formater la reponse de la base de donnees pour l utilisateur
         """
         if results.get('error'):
             return f"❌ Erreur: {results['error']}"
@@ -724,7 +724,7 @@ Format de réponse: texte clair et concis, sans markdown complexe."""
         return prompt
     
     def _clean_response(self, text):
-        """Nettoyer la réponse de l'IA"""
+        """Nettoyer la reponse de l IA"""
         if not isinstance(text, str):
             text = str(text)
         
@@ -1166,7 +1166,7 @@ EXIGENCES:
             logger.error(f"❌ Erreur sauvegarde pannes individuelles: {e}")
     
     def _calculate_severity(self, panne_type: str, confiance: float) -> str:
-        """Calculer le niveau de sévérité d'une panne"""
+        """Calculer le niveau de severite d une panne"""
         pannes_critiques = [
             'surchauffe_compresseur', 
             'défaillance_compresseur', 
