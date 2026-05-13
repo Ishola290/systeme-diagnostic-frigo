@@ -389,24 +389,20 @@ def handle_disconnect():
 
 @socketio.on('send_message')
 def handle_send_message(data):
-    """
-    Recevoir message du technicien et envoyer à l'IA pour réponse
-    Communication: Chat → IA Service → Chat (réponse)
-    """
     global _messages_cache
-    
+
     content = data.get('content', '').strip()
-    model = data.get('model', 'gpt4')  # GPT-4 par défaut
+    model = data.get('model', 'gpt4')
     user_id = data.get('user_id', 'technician_1')
     user_name = data.get('user_name', 'Technicien')
-    
+
     if not content:
         emit('error', {'message': 'Message vide'})
         return False
-    
-    logger.info(f"💬 Message de {user_name} [modèle: {model}]: {content[:50]}...")
-    
-    # Message utilisateur - avec ID incrémental
+
+    logger.info(f"💬 Message de {user_name}: {content[:50]}...")
+
+    # Sauvegarder message utilisateur
     user_msg = {
         'id': len(_messages_cache) + 1,
         'content': content,
@@ -416,60 +412,53 @@ def handle_send_message(data):
         'created_at': datetime.utcnow().isoformat()
     }
     _messages_cache.append(user_msg)
-    _save_json_file(MESSAGES_FILE, _messages_cache)  # SAUVEGARDER
-    
+    _save_json_file(MESSAGES_FILE, _messages_cache)
     socketio.emit('new_message', user_msg)
     emit('typing', {'user': 'IA', 'status': 'typing'})
-    
-    # Envoyer au service IA pour traitement avec le modèle
-    # Envoyer au service IA pour traitement avec le modèle
-    try:
-        ia_response = requests.post(
-            f"{IA_SERVICE_URL}/api/chat/message",
-            json={
-                'message': content,
-                'user_id': user_id,
-                'user_name': user_name,
-                'source': 'chat_web',
-                'model': model
-            },
-            timeout=60
-        )
-        
-        if ia_response.status_code == 200:
-            ia_result = ia_response.json()
-            if ia_result.get('success'):
-                response_text = ia_result.get('response', 'Je ne peux pas répondre pour le moment.')
-                processing_time = ia_result.get('processing_time_ms', 0)
-                logger.info(f"✅ Réponse IA reçue en {processing_time}ms")
+
+    # Appel IA dans un thread séparé pour ne pas bloquer le WebSocket
+    sid = request.sid
+
+    def call_ia():
+        try:
+            ia_response = requests.post(
+                f"{IA_SERVICE_URL}/api/chat/message",
+                json={
+                    'message': content,
+                    'user_id': user_id,
+                    'user_name': user_name,
+                    'source': 'chat_web',
+                    'model': model
+                },
+                timeout=90
+            )
+            if ia_response.status_code == 200:
+                ia_result = ia_response.json()
+                response_text = ia_result.get('response', 'Pas de réponse.') if ia_result.get('success') else "Erreur IA."
             else:
-                response_text = "Désolé, une erreur s'est produite lors du traitement."
-                logger.warning(f"⚠️ IA a retourné une erreur: {ia_result}")
-        else:
-            response_text = f"Service IA indisponible (HTTP {ia_response.status_code})"
-            logger.error(f"❌ Erreur HTTP IA: {ia_response.status_code}")
-            
-    except requests.Timeout:
-        response_text = "Le service IA met trop de temps à répondre. Veuillez réessayer."
-        logger.error("❌ Timeout lors de l'appel au service IA")
-    except Exception as e:
-        response_text = "Erreur de communication avec le service IA."
-        logger.error(f"❌ Erreur appel IA: {e}")
-    
-    # Réponse du système
-    sys_msg = {
-        'id': len(_messages_cache) + 1,
-        'content': response_text,
-        'is_from_system': True,
-        'user_name': 'IA',
-        'model': model,
-        'created_at': datetime.utcnow().isoformat()
-    }
-    _messages_cache.append(sys_msg)
-    _save_json_file(MESSAGES_FILE, _messages_cache)  # SAUVEGARDER
-    
-    socketio.emit('new_message', sys_msg)
-    emit('typing', {'user': 'IA', 'status': 'done'})
+                response_text = f"Service IA indisponible (HTTP {ia_response.status_code})"
+        except requests.Timeout:
+            response_text = "Le service IA met trop de temps. Réessayez."
+        except Exception as e:
+            response_text = f"Erreur: {str(e)}"
+
+        # Sauvegarder et émettre la réponse
+        sys_msg = {
+            'id': len(_messages_cache) + 1,
+            'content': response_text,
+            'is_from_system': True,
+            'user_name': 'IA',
+            'model': model,
+            'created_at': datetime.utcnow().isoformat()
+        }
+        _messages_cache.append(sys_msg)
+        _save_json_file(MESSAGES_FILE, _messages_cache)
+        socketio.emit('new_message', sys_msg)
+        socketio.emit('typing', {'user': 'IA', 'status': 'done'})
+
+    import threading
+    thread = threading.Thread(target=call_ia, daemon=True)
+    thread.start()
 
 # ==================== KEEP ALIVE ====================
 import threading
