@@ -471,6 +471,33 @@ def handle_send_message(data):
     socketio.emit('new_message', sys_msg)
     emit('typing', {'user': 'IA', 'status': 'done'})
 
+# ==================== KEEP ALIVE ====================
+import threading
+
+def keep_alive():
+    """Ping tous les services toutes les 10 minutes pour éviter la mise en veille Render"""
+    import time
+    services = [
+        'https://frigo-app.onrender.com/health',
+        'https://frigo-gpt.onrender.com/health',
+        'https://frigo-chat.onrender.com/health',
+        'https://agent-ia-frigo-tdmm.onrender.com/health',
+    ]
+    while True:
+        time.sleep(600)  # 10 minutes
+        for url in services:
+            try:
+                import requests as req
+                req.get(url, timeout=10)
+                logger.info(f"✅ Keep-alive ping: {url}")
+            except Exception as e:
+                logger.warning(f"⚠️ Keep-alive failed: {url} — {e}")
+
+# Démarrer le keep-alive en arrière-plan
+keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
+keep_alive_thread.start()
+logger.info("🏓 Keep-alive démarré — ping toutes les 10 minutes")
+
 # ==================== MAIN ====================
 
 if __name__ == '__main__':
