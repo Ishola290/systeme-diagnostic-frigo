@@ -22,6 +22,7 @@ else:
 import requests
 from datetime import datetime
 import time
+import json
 
 # Import du service IA OLLAMA ONLY
 from ia_service import get_service
@@ -313,7 +314,7 @@ def process_alert():
         
         return jsonify({
             'success': True,
-            'alert': processed_alert,
+            'alert': result,
             'chat_notified': True
         }), 200
     
@@ -444,7 +445,7 @@ def analyze_diagnostic():
         diagnostic_msg = f"Diagnostic: {', '.join(symptoms)}"
         
         # Traiter via le service IA
-        result = ia_service.process_chat_message(diagnostic_msg, 'diagnostic_system')
+        result = ia_service.process_chat(message=diagnostic_msg, user_id='diagnostic_system')
         
         return jsonify({
             'success': True,
