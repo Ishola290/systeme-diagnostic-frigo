@@ -1176,14 +1176,19 @@ function sendMessage() {
     const input = document.getElementById('messageInput');
     const msg = input.value.trim();
     if (!msg || msg.length < 1) return;
-    document.getElementById('sendBtn').disabled = true;
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
     const model = document.getElementById('modelSelect').value;
     appendMsg(msg, 'user');
     input.value = '';
     showTyping(true);
     socket.emit('send_message', { content: msg, model, user_name: document.getElementById('userName').textContent });
+    // Sécurité : réactiver le bouton après 65 secondes max
+    setTimeout(() => {
+        btn.disabled = false;
+        showTyping(false);
+    }, 65000);
 }
-
 function appendMsg(content, who) {
     const box = document.getElementById('messagesBox');
     const d = document.createElement('div');
