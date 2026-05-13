@@ -212,7 +212,7 @@ Tu connais en temps réel l'état complet du système.
             }
 
     def _get_system_context(self):
-        """Récupère l'état live du système pour informer GPT"""
+        """Recupere etat live du systeme pour informer GPT"""
         try:
             import requests, os
             app_url = os.environ.get('MAIN_APP_URL', 'https://frigo-app.onrender.com')
