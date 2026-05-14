@@ -1212,8 +1212,8 @@ function showTyping(show) {
 
 // ===== DATA LOADING =====
 let messagesLoaded = false;
-async function loadMessages() {
-    if (messagesLoaded) return;
+async function loadMessages(force = false) {
+    if (messagesLoaded && !force) return;
     messagesLoaded = true;
     try {
         const r = await fetch('/api/messages?limit=200');
@@ -1414,7 +1414,31 @@ async function markAllRead() {
     renderAlerts();
 }
 
-function expandAlert(id) { /* future: open modal */ }
+function expandAlert(alertId) {
+    const alert = allAlerts.find(a => a.alert_id === alertId || a.id === alertId);
+    if (!alert) return;
+    const sev = alert.severity || 'medium';
+    const icons = { critical:'🔴', high:'🟠', medium:'🟡', low:'🟢' };
+    const modal = document.createElement('div');
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;`;
+    modal.innerHTML = `
+        <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;max-width:700px;width:100%;max-height:80vh;overflow-y:auto;padding:28px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:24px;">${icons[sev]||'⚠️'}</span>
+                    <span style="font-weight:700;font-size:17px;">${alert.title||'Alerte'}</span>
+                    <span class="sev-badge badge-${sev}">${sev.toUpperCase()}</span>
+                </div>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;">✕ Fermer</button>
+            </div>
+            <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:16px;">
+                🕐 ${new Date(alert.created_at).toLocaleString('fr-FR')} | ID: ${alert.alert_id||alert.id||'?'}
+            </div>
+            <div style="font-size:14px;line-height:1.7;color:var(--text2);white-space:pre-wrap;">${alert.message||'Pas de détails.'}</div>
+        </div>`;
+    modal.addEventListener('click', e => { if(e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
 
 // ===== DEMO =====
 function log(msg, type = 'info') {
@@ -1553,7 +1577,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('userAvatar').textContent = uname[0].toUpperCase();
 
     // Socket events
-    socket.on('connect', () => { loadAlerts(); loadStats(); loadDiagnostics(); });
+    socket.on('connect', () => {
+        messagesLoaded = false; // Reset pour recharger à chaque reconnexion
+        loadMessages();
+        loadAlerts();
+        loadStats();
+        loadDiagnostics();
+    });
     socket.on('new_message', d => {
         showTyping(false);
         // N'affiche que les messages du système (réponses IA)
@@ -1570,7 +1600,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentTab === 'alerts') renderAlerts();
     });
 
-    loadMessages();
+    loadMessages(true);
     loadAlerts();
     loadStats();
     loadDiagnostics();
