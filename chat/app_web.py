@@ -457,9 +457,8 @@ def handle_send_message(data):
         socketio.emit('new_message', sys_msg)
         socketio.emit('typing', {'user': 'IA', 'status': 'done'})
 
-    import threading
-    thread = threading.Thread(target=call_ia, daemon=True)
-    thread.start()
+    
+    socketio.start_background_task(call_ia)
 
 # ==================== KEEP ALIVE ====================
 import threading
