@@ -1219,6 +1219,9 @@ async function loadMessages(force = false) {
         const r = await fetch('/api/messages?limit=200');
         if (r.ok) {
             const msgs = await r.json();
+            // Vider le chat avant de recharger
+            const box = document.getElementById('messagesBox');
+            box.innerHTML = '';
             msgs.forEach(m => appendMsg(m.content, m.is_from_system ? 'system' : 'user'));
         }
     } catch(e) {}
@@ -1578,17 +1581,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Socket events
     socket.on('connect', () => {
-        messagesLoaded = false; // Reset pour recharger à chaque reconnexion
-        loadMessages();
+        // Ne recharger les messages QUE si pas encore chargés
+        if (!messagesLoaded) {
+            loadMessages(true);
+        }
         loadAlerts();
         loadStats();
         loadDiagnostics();
     });
     socket.on('new_message', d => {
         showTyping(false);
-        // N'affiche que les messages du système (réponses IA)
-        // Les messages utilisateur sont déjà affichés par sendMessage()
         document.getElementById('sendBtn').disabled = false;
+        // Afficher UNIQUEMENT les réponses IA, jamais les messages user
+        // (déjà affichés par sendMessage())
         if (d.is_from_system) {
             appendMsg(d.content, 'system');
         }
@@ -1600,7 +1605,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentTab === 'alerts') renderAlerts();
     });
 
-    loadMessages(true);
     loadAlerts();
     loadStats();
     loadDiagnostics();
